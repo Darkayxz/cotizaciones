@@ -1,0 +1,355 @@
+export default function QuoteGeneratorApp() { const { useState } = React;
+
+const [logo, setLogo] = useState(null); const [quoteNumber, setQuoteNumber] = useState(COT-${new Date().getFullYear()}-${Math.floor(Math.random() * 9999)}); const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]); const [validity, setValidity] = useState('15 días');
+
+const [provider, setProvider] = useState({ company: 'Mi Empresa SPA', rut: '', address: '', phone: '', email: '', city: '', contact: '', });
+
+const [client, setClient] = useState({ company: '', rut: '', address: '', phone: '', city: '', contact: '', });
+
+const [terms, setTerms] = useState({ delivery: '5 días hábiles', payment: 'Transferencia bancaria', warranty: '30 días de garantía', });
+
+const [items, setItems] = useState([ { code: '', description: '', quantity: 1, price: 0, }, ]);
+
+const handleLogoUpload = (e) => { const file = e.target.files[0]; if (!file) return;
+
+const reader = new FileReader();
+reader.onloadend = () => {
+  setLogo(reader.result);
+};
+reader.readAsDataURL(file);
+
+};
+
+const updateItem = (index, field, value) => { const updated = [...items]; updated[index][field] = field === 'description' || field === 'code' ? value : Number(value);
+
+setItems(updated);
+
+};
+
+const addItem = () => { setItems([ ...items, { code: '', description: '', quantity: 1, price: 0, }, ]); };
+
+const removeItem = (index) => { setItems(items.filter((_, i) => i !== index)); };
+
+const subtotal = items.reduce( (acc, item) => acc + item.quantity * item.price, 0 );
+
+const iva = subtotal * 0.19; const total = subtotal + iva;
+
+const exportPDF = async () => { const { jsPDF } = window.jspdf; const doc = new jsPDF('p', 'mm', 'a4');
+
+if (logo) {
+  doc.addImage(logo, 'PNG', 14, 10, 30, 30);
+}
+
+doc.setFontSize(22);
+doc.text('COTIZACIÓN', 105, 20, { align: 'center' });
+
+doc.setFontSize(10);
+doc.text(`Folio: ${quoteNumber}`, 150, 30);
+doc.text(`Fecha: ${issueDate}`, 150, 36);
+doc.text(`Validez: ${validity}`, 150, 42);
+
+const drawSection = (title, data, startY) => {
+  doc.setFillColor(220, 220, 220);
+  doc.rect(14, startY, 182, 8, 'F');
+  doc.setFontSize(12);
+  doc.text(title, 16, startY + 5.5);
+
+  const rows = [
+    ['Razón Social', data.company, 'Ciudad', data.city],
+    ['Contacto', data.contact, 'RUT', data.rut],
+    ['Dirección', data.address, 'Teléfono', data.phone],
+  ];
+
+  let y = startY + 8;
+
+  rows.forEach((row) => {
+    doc.rect(14, y, 35, 10);
+    doc.rect(49, y, 80, 10);
+    doc.rect(129, y, 25, 10);
+    doc.rect(154, y, 42, 10);
+
+    doc.text(row[0], 16, y + 6);
+    doc.text(String(row[1] || '-'), 52, y + 6);
+    doc.text(row[2], 132, y + 6);
+    doc.text(String(row[3] || '-'), 157, y + 6);
+
+    y += 10;
+  });
+
+  return y + 10;
+};
+
+let currentY = 50;
+
+currentY = drawSection('DATOS DEL CLIENTE', client, currentY);
+currentY = drawSection('DATOS DEL PROVEEDOR', provider, currentY);
+
+doc.setFillColor(220, 220, 220);
+doc.rect(14, currentY, 182, 8, 'F');
+
+doc.text('Código', 16, currentY + 5);
+doc.text('Descripción', 45, currentY + 5);
+doc.text('P.Unitario', 120, currentY + 5);
+doc.text('Cant.', 155, currentY + 5);
+doc.text('Total', 178, currentY + 5);
+
+currentY += 8;
+
+items.forEach((item) => {
+  const lineTotal = item.quantity * item.price;
+
+  doc.rect(14, currentY, 25, 10);
+  doc.rect(39, currentY, 75, 10);
+  doc.rect(114, currentY, 35, 10);
+  doc.rect(149, currentY, 20, 10);
+  doc.rect(169, currentY, 27, 10);
+
+  doc.text(String(item.code || '-'), 16, currentY + 6);
+  doc.text(String(item.description || '-'), 42, currentY + 6);
+  doc.text(`$${item.price.toLocaleString('es-CL')}`, 117, currentY + 6);
+  doc.text(String(item.quantity), 156, currentY + 6);
+  doc.text(`$${lineTotal.toLocaleString('es-CL')}`, 193, currentY + 6, {
+    align: 'right',
+  });
+
+  currentY += 10;
+});
+
+doc.rect(114, currentY, 55, 10);
+doc.rect(169, currentY, 27, 10);
+doc.text('NETO', 135, currentY + 6);
+doc.text(`$${subtotal.toLocaleString('es-CL')}`, 193, currentY + 6, {
+  align: 'right',
+});
+
+currentY += 10;
+
+doc.rect(114, currentY, 55, 10);
+doc.rect(169, currentY, 27, 10);
+doc.text('IVA', 138, currentY + 6);
+doc.text(`$${iva.toLocaleString('es-CL')}`, 193, currentY + 6, {
+  align: 'right',
+});
+
+currentY += 10;
+
+doc.rect(114, currentY, 55, 10);
+doc.rect(169, currentY, 27, 10);
+doc.setFontSize(12);
+doc.text('TOTAL', 132, currentY + 6);
+doc.text(`$${total.toLocaleString('es-CL')}`, 193, currentY + 6, {
+  align: 'right',
+});
+
+currentY += 25;
+
+doc.setFontSize(11);
+doc.text('TÉRMINOS Y CONDICIONES', 14, currentY);
+
+currentY += 8;
+
+doc.text(`• Entrega: ${terms.delivery}`, 18, currentY);
+currentY += 6;
+doc.text(`• Pago: ${terms.payment}`, 18, currentY);
+currentY += 6;
+doc.text(`• Garantía: ${terms.warranty}`, 18, currentY);
+
+doc.save(`${quoteNumber}.pdf`);
+
+};
+
+return ( <div className="min-h-screen bg-gray-100 p-6"> <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-8 space-y-8">
+    <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
+      <div>
+        <h1 className="text-4xl font-bold">Sistema de Cotizaciones</h1>
+        <p className="text-gray-500 mt-1">
+          Formato profesional estilo empresarial chileno
+        </p>
+      </div>
+
+      <button
+        onClick={exportPDF}
+        className="bg-black text-white px-6 py-4 rounded-2xl hover:scale-105 transition"
+      >
+        Exportar PDF
+      </button>
+    </div>
+
+    <div className="grid md:grid-cols-4 gap-4">
+      <div>
+        <label className="text-sm font-medium">Logo Empresa</label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleLogoUpload}
+          className="w-full border rounded-xl p-2"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Folio</label>
+        <input
+          value={quoteNumber}
+          onChange={(e) => setQuoteNumber(e.target.value)}
+          className="w-full border rounded-xl px-4 py-3"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Fecha</label>
+        <input
+          type="date"
+          value={issueDate}
+          onChange={(e) => setIssueDate(e.target.value)}
+          className="w-full border rounded-xl px-4 py-3"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Validez Oferta</label>
+        <input
+          value={validity}
+          onChange={(e) => setValidity(e.target.value)}
+          className="w-full border rounded-xl px-4 py-3"
+        />
+      </div>
+    </div>
+
+    <div className="grid lg:grid-cols-2 gap-8">
+      <div className="border rounded-3xl p-6 space-y-4">
+        <h2 className="text-2xl font-bold">Datos Cliente</h2>
+
+        {Object.keys(client).map((field) => (
+          <input
+            key={field}
+            placeholder={field.toUpperCase()}
+            value={client[field]}
+            onChange={(e) =>
+              setClient({ ...client, [field]: e.target.value })
+            }
+            className="w-full border rounded-xl px-4 py-3"
+          />
+        ))}
+      </div>
+
+      <div className="border rounded-3xl p-6 space-y-4">
+        <h2 className="text-2xl font-bold">Datos Proveedor</h2>
+
+        {Object.keys(provider).map((field) => (
+          <input
+            key={field}
+            placeholder={field.toUpperCase()}
+            value={provider[field]}
+            onChange={(e) =>
+              setProvider({ ...provider, [field]: e.target.value })
+            }
+            className="w-full border rounded-xl px-4 py-3"
+          />
+        ))}
+      </div>
+    </div>
+
+    <div className="space-y-4 border rounded-3xl p-6">
+      <h2 className="text-2xl font-bold">Productos / Servicios</h2>
+
+      {items.map((item, index) => (
+        <div key={index} className="grid grid-cols-12 gap-2">
+          <input
+            placeholder="Código"
+            value={item.code}
+            onChange={(e) => updateItem(index, 'code', e.target.value)}
+            className="col-span-2 border rounded-xl px-3 py-3"
+          />
+
+          <input
+            placeholder="Descripción"
+            value={item.description}
+            onChange={(e) => updateItem(index, 'description', e.target.value)}
+            className="col-span-4 border rounded-xl px-3 py-3"
+          />
+
+          <input
+            type="number"
+            placeholder="Cantidad"
+            value={item.quantity}
+            onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+            className="col-span-2 border rounded-xl px-3 py-3"
+          />
+
+          <input
+            type="number"
+            placeholder="Precio"
+            value={item.price}
+            onChange={(e) => updateItem(index, 'price', e.target.value)}
+            className="col-span-3 border rounded-xl px-3 py-3"
+          />
+
+          <button
+            onClick={() => removeItem(index)}
+            className="col-span-1 bg-red-500 text-white rounded-xl"
+          >
+            X
+          </button>
+        </div>
+      ))}
+
+      <button
+        onClick={addItem}
+        className="w-full border-2 border-dashed rounded-2xl py-4 hover:bg-gray-50"
+      >
+        + Agregar Ítem
+      </button>
+    </div>
+
+    <div className="grid lg:grid-cols-2 gap-8">
+      <div className="border rounded-3xl p-6 space-y-4">
+        <h2 className="text-2xl font-bold">Términos y Condiciones</h2>
+
+        <input
+          placeholder="Entrega"
+          value={terms.delivery}
+          onChange={(e) =>
+            setTerms({ ...terms, delivery: e.target.value })
+          }
+          className="w-full border rounded-xl px-4 py-3"
+        />
+
+        <input
+          placeholder="Pago"
+          value={terms.payment}
+          onChange={(e) =>
+            setTerms({ ...terms, payment: e.target.value })
+          }
+          className="w-full border rounded-xl px-4 py-3"
+        />
+
+        <input
+          placeholder="Garantía"
+          value={terms.warranty}
+          onChange={(e) =>
+            setTerms({ ...terms, warranty: e.target.value })
+          }
+          className="w-full border rounded-xl px-4 py-3"
+        />
+      </div>
+
+      <div className="bg-gray-50 rounded-3xl p-8 flex flex-col justify-center text-right space-y-4">
+        <div className="text-2xl">
+          Neto: <strong>${subtotal.toLocaleString('es-CL')}</strong>
+        </div>
+
+        <div className="text-2xl">
+          IVA (19%): <strong>${iva.toLocaleString('es-CL')}</strong>
+        </div>
+
+        <div className="text-4xl font-bold">
+          Total: ${total.toLocaleString('es-CL')}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+); }
